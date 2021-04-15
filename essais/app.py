@@ -36,55 +36,55 @@ from TTS.utils.visual import visualize
 logger = logging.getLogger(__name__)
 
 
-def load_deepspeech_model():
-    N_FEATURES = 25
-    N_CONTEXT = 9
-    BEAM_WIDTH = 500
-    LM_ALPHA = 0.75
-    LM_BETA = 1.85
-
-    ds = Model('deepspeech-0.5.1-models/output_graph.pbmm', N_FEATURES, N_CONTEXT,
-               'deepspeech-0.5.1-models/alphabet.txt', BEAM_WIDTH)
-    return ds
-
-
-def load_tts_model():
-    MODEL_PATH = './tts_model/best_model.pth.tar'
-    CONFIG_PATH = './tts_model/config.json'
-    CONFIG = load_config(CONFIG_PATH)
-    use_cuda = False
-
-    num_chars = len(phonemes) if CONFIG.use_phonemes else len(symbols)
-    model = Tacotron(num_chars, CONFIG.embedding_size, CONFIG.audio['num_freq'], CONFIG.audio['num_mels'], CONFIG.r,
-                     attn_windowing=False)
-
-    num_chars = len(phonemes) if CONFIG.use_phonemes else len(symbols)
-    model = Tacotron(num_chars, CONFIG.embedding_size, CONFIG.audio['num_freq'], CONFIG.audio['num_mels'], CONFIG.r,
-                     attn_windowing=False)
-
-    # load the audio processor
-    # CONFIG.audio["power"] = 1.3
-    CONFIG.audio["preemphasis"] = 0.97
-    ap = AudioProcessor(**CONFIG.audio)
-
-    # load model state
-    if use_cuda:
-        cp = torch.load(MODEL_PATH)
-    else:
-        cp = torch.load(MODEL_PATH, map_location=lambda storage, loc: storage)
-
-    # load the model
-    model.load_state_dict(cp['model'])
-    if use_cuda:
-        model.cuda()
-
-    # model.eval()
-    model.decoder.max_decoder_steps = 1000
-    return model, ap, MODEL_PATH, CONFIG, use_cuda
-
-
-ds = load_deepspeech_model()
-model, ap, MODEL_PATH, CONFIG, use_cuda = load_tts_model()
+# def load_deepspeech_model():
+#     N_FEATURES = 25
+#     N_CONTEXT = 9
+#     BEAM_WIDTH = 500
+#     LM_ALPHA = 0.75
+#     LM_BETA = 1.85
+#
+#     ds = Model('deepspeech-0.5.1-models/output_graph.pbmm', N_FEATURES, N_CONTEXT,
+#                'deepspeech-0.5.1-models/alphabet.txt', BEAM_WIDTH)
+#     return ds
+#
+#
+# def load_tts_model():
+#     MODEL_PATH = './tts_model/best_model.pth.tar'
+#     CONFIG_PATH = './tts_model/config.json'
+#     CONFIG = load_config(CONFIG_PATH)
+#     use_cuda = False
+#
+#     num_chars = len(phonemes) if CONFIG.use_phonemes else len(symbols)
+#     model = Tacotron(num_chars, CONFIG.embedding_size, CONFIG.audio['num_freq'], CONFIG.audio['num_mels'], CONFIG.r,
+#                      attn_windowing=False)
+#
+#     num_chars = len(phonemes) if CONFIG.use_phonemes else len(symbols)
+#     model = Tacotron(num_chars, CONFIG.embedding_size, CONFIG.audio['num_freq'], CONFIG.audio['num_mels'], CONFIG.r,
+#                      attn_windowing=False)
+#
+#     # load the audio processor
+#     # CONFIG.audio["power"] = 1.3
+#     CONFIG.audio["preemphasis"] = 0.97
+#     ap = AudioProcessor(**CONFIG.audio)
+#
+#     # load model state
+#     if use_cuda:
+#         cp = torch.load(MODEL_PATH)
+#     else:
+#         cp = torch.load(MODEL_PATH, map_location=lambda storage, loc: storage)
+#
+#     # load the model
+#     model.load_state_dict(cp['model'])
+#     if use_cuda:
+#         model.cuda()
+#
+#     # model.eval()
+#     model.decoder.max_decoder_steps = 1000
+#     return model, ap, MODEL_PATH, CONFIG, use_cuda
+#
+#
+# ds = load_deepspeech_model()
+# model, ap, MODEL_PATH, CONFIG, use_cuda = load_tts_model()
 
 
 class SocketBlueprint(Blueprint):
@@ -110,16 +110,16 @@ class SocketIOOutput(OutputChannel):
         self.bot_message_evt = bot_message_evt
         self.message = message
 
-    def tts(self, model, text, CONFIG, use_cuda, ap, OUT_FILE):
-        import numpy as np
-        waveform, alignment, spectrogram, mel_spectrogram, stop_tokens = synthesis(model, text, CONFIG, use_cuda, ap)
-        ap.save_wav(waveform, OUT_FILE)
-        wav_norm = waveform * (32767 / max(0.01, np.max(np.abs(waveform))))
-        return alignment, spectrogram, stop_tokens, wav_norm
-
-    def tts_predict(self, MODEL_PATH, sentence, CONFIG, use_cuda, OUT_FILE):
-        align, spec, stop_tokens, wav_norm = self.tts(model, sentence, CONFIG, use_cuda, ap, OUT_FILE)
-        return wav_norm
+    # def tts(self, model, text, CONFIG, use_cuda, ap, OUT_FILE):
+    #     import numpy as np
+    #     waveform, alignment, spectrogram, mel_spectrogram, stop_tokens = synthesis(model, text, CONFIG, use_cuda, ap)
+    #     ap.save_wav(waveform, OUT_FILE)
+    #     wav_norm = waveform * (32767 / max(0.01, np.max(np.abs(waveform))))
+    #     return alignment, spectrogram, stop_tokens, wav_norm
+    #
+    # def tts_predict(self, MODEL_PATH, sentence, CONFIG, use_cuda, OUT_FILE):
+    #     align, spec, stop_tokens, wav_norm = self.tts(model, sentence, CONFIG, use_cuda, ap, OUT_FILE)
+    #     return wav_norm
 
     async def _send_audio_message(self, socket_id, response, **kwargs: Any):
         # type: (Text, Any) -> None
