@@ -15,26 +15,16 @@ import scipy.io.wavfile as wav
 import os
 import sys
 import io
-import torch
+
 import time
 import numpy as np
 from collections import OrderedDict
 import urllib
 
-import librosa
-
-from TTS.models.tacotron import Tacotron
-from TTS.layers import *
-from TTS.utils.data import *
-from TTS.utils.audio import AudioProcessor
-from TTS.utils.generic_utils import load_config
-from TTS.utils.text import text_to_sequence
-from TTS.utils.synthesis import synthesis
-from utils.text.symbols import symbols, phonemes
-from TTS.utils.visual import visualize
+from google.cloud import texttospeech
+from google.cloud import speech
 
 logger = logging.getLogger(__name__)
-
 
 # def load_deepspeech_model():
 #     N_FEATURES = 25
@@ -85,6 +75,7 @@ logger = logging.getLogger(__name__)
 #
 # ds = load_deepspeech_model()
 # model, ap, MODEL_PATH, CONFIG, use_cuda = load_tts_model()
+tts_client = speech.SpeechClient()
 
 
 class SocketBlueprint(Blueprint):
@@ -109,6 +100,15 @@ class SocketIOOutput(OutputChannel):
         self.sid = sid
         self.bot_message_evt = bot_message_evt
         self.message = message
+        self.client = texttospeech.TextToSpeechClient()
+        self.voice = texttospeech.VoiceSelectionParams(
+            language_code="fr-FR", ssml_gender=texttospeech.SsmlVoiceGender.NEUTRAL
+        )
+
+        # Select the type of audio file you want returned
+        self.audio_config = texttospeech.AudioConfig(
+            audio_encoding=texttospeech.AudioEncoding.WAV
+        )
 
     # def tts(self, model, text, CONFIG, use_cuda, ap, OUT_FILE):
     #     import numpy as np
@@ -116,10 +116,15 @@ class SocketIOOutput(OutputChannel):
     #     ap.save_wav(waveform, OUT_FILE)
     #     wav_norm = waveform * (32767 / max(0.01, np.max(np.abs(waveform))))
     #     return alignment, spectrogram, stop_tokens, wav_norm
-    #
-    # def tts_predict(self, MODEL_PATH, sentence, CONFIG, use_cuda, OUT_FILE):
-    #     align, spec, stop_tokens, wav_norm = self.tts(model, sentence, CONFIG, use_cuda, ap, OUT_FILE)
-    #     return wav_norm
+
+    def tts_predict(self, sentence, OUT_FILE):
+        wav_norm = self.client.synthesize_speech(
+            input=texttospeech.SynthesisInput(text=sentence), voice=self.voice, audio_config=self.audio_config
+        )
+        with open(OUT_FILE, "wb") as out:
+            # Write the response to the output file.
+            out.write(wav_norm.audio_content)
+        return wav_norm.audio_content
 
     async def _send_audio_message(self, socket_id, response, **kwargs: Any):
         # type: (Text, Any) -> None
@@ -129,7 +134,7 @@ class SocketIOOutput(OutputChannel):
         OUT_FILE = str(ts) + '.wav'
         link = "http://localhost:8888/" + OUT_FILE
 
-        wav_norm = self.tts_predict(MODEL_PATH, response['text'], CONFIG, use_cuda, OUT_FILE)
+        wav_norm = self.tts_predict(response['text'], OUT_FILE)
 
         await self.sio.emit(self.bot_message_evt, {'text': response['text'], "link": link}, room=socket_id)
 
@@ -215,7 +220,16 @@ class SocketIOInput(InputChannel):
                 path = os.path.dirname(__file__)
 
                 fs, audio = wav.read("output_{0}.wav".format(sid))
-                message = ds.stt(audio, fs)
+                audio = speech.RecognitionAudio(content=audio)
+                config = speech.RecognitionConfig(
+                    encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
+                    sample_rate_hertz=16000,
+                    language_code="fr-FR",
+                )
+                audio_response = tts_client.recognize(config=config, audio=audio)
+                message = ""
+                for result in audio_response.results:
+                    message += u"Transcript: {}".format(result.alternatives[0].transcript)
 
                 await sio.emit(self.user_message_evt, {"text": message}, room=sid)
 
