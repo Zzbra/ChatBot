@@ -57,7 +57,7 @@ subprocess.call(['mpg321', "welcome.mp3"], stdout=subprocess.DEVNULL, stderr=sub
 
 while bot_message != "Bye" or bot_message != 'thanks':
 
-    with MicrophoneStream(RATE, CHUNK) as stream:  # mention source it will be either Microphone or audio files.
+    with MicrophoneStream(RATE, CHUNK) as stream:
         print("A vous de parler")
         audio_generator = stream.generator()
         audio_requests = (
@@ -67,21 +67,21 @@ while bot_message != "Bye" or bot_message != 'thanks':
 
         responses = stt_client.streaming_recognize(streaming_config, audio_requests)
         message = ""
-
-        for response in responses:
-            # On s'assure que le stream en entrée ne soit pas vide
-            if not response.results:
-                continue
-            result = response.results[0]
-            if not result.alternatives:
-                continue
-            transcript = result.alternatives[0].transcript
-            message += transcript
-            # Lorsque l'on a un message, comme on est en mode sinlge_utterance,
-            # on peut fermer le stream
-            stream.__exit__(0, 0, 0)
-            # break
-        print(message)
+        message = listen_print_loop(responses)
+        # for response in responses:
+        #     # On s'assure que le stream en entrée ne soit pas vide
+        #     if not response.results:
+        #         continue
+        #     result = response.results[0]
+        #     if not result.alternatives:
+        #         continue
+        #     transcript = result.alternatives[0].transcript
+        #     message += transcript
+        #     # Lorsque l'on a un message, comme on est en mode sinlge_utterance,
+        #     # on peut fermer le stream
+        #     stream.__exit__(0, 0, 0)
+        #     # break
+        # print(message)
 
     r = requests.post('http://localhost:5002/webhooks/rest/webhook', json={"message": message})
 
